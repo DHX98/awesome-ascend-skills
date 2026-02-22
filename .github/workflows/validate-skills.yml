@@ -51,11 +51,21 @@ jobs:
             dir=$(dirname "$f")
             name=$(grep "^name:" "$f" | cut -d: -f2 | tr -d ' ')
             expected=$(basename "$dir")
-            if [ "$name" != "$expected" ]; then
-              echo "ERROR: Directory '$dir' has name='$name' but expected '$expected'"
+            
+            # For nested skills, name can be either:
+            # 1. Exact match with directory name (e.g., "basic" for "basic/")
+            # 2. Hyphenated path ending with directory name (e.g., "npu-smi-info-basic" for "npu-smi-info/basic/")
+            # This allows both naming conventions for flexibility
+            
+            # Check if name ends with expected directory name (with hyphen prefix or exact match)
+            if [ "$name" = "$expected" ]; then
+              echo "OK: $dir -> name: $name (exact match)"
+            elif [ "$name" = "${name%-*}-$expected" ] || [[ "$name" == *-"$expected" ]]; then
+              echo "OK: $dir -> name: $name (hyphenated, ends with directory name)"
+            else
+              echo "ERROR: Directory '$dir' has name='$name' but expected to end with '$expected'"
               exit 1
             fi
-            echo "OK: $dir -> name: $name"
           done
           echo "All skill names match their directory names!"
 
