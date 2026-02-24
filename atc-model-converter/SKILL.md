@@ -105,8 +105,23 @@ After converting your model to OM format, use ais_bench for Python inference on 
 
 ### Install ais_bench
 
+**Option 1: Download pre-built wheel packages (recommended)**
+
 ```bash
-# Source compilation (recommended for latest version)
+# Download from Huawei OBS (choose version matching your Python and architecture)
+# See: https://gitee.com/ascend/tools/blob/master/ais-bench_workload/tool/ais_bench/README.md
+
+# Example for Python 3.10, aarch64:
+wget https://aisbench.obs.myhuaweicloud.com/packet/ais_bench_infer/0.0.2/ait/aclruntime-0.0.2-cp310-cp310-linux_aarch64.whl
+wget https://aisbench.obs.myhuaweicloud.com/packet/ais_bench_infer/0.0.2/ait/ais_bench-0.0.2-py3-none-any.whl
+
+# Install
+pip3 install ./aclruntime-*.whl ./ais_bench-*.whl
+```
+
+**Option 2: Build from source (if pre-built packages unavailable)**
+
+```bash
 git clone https://gitee.com/ascend/tools.git
 cd tools/ais-bench_workload/tool/ais_bench
 

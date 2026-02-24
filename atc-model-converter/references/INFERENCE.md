@@ -20,7 +20,21 @@ Complete guide for running inference on Ascend NPU using ais_bench.
 - Python 3.7+
 - numpy, tqdm, wheel
 
-### Install from Source (Recommended)
+### Install from Pre-built Wheels (Recommended)
+
+```bash
+# Download from Huawei OBS (choose version matching your Python and architecture)
+# See: https://gitee.com/ascend/tools/blob/master/ais-bench_workload/tool/ais_bench/README.md
+
+# Example for Python 3.10, aarch64:
+wget https://aisbench.obs.myhuaweicloud.com/packet/ais_bench_infer/0.0.2/ait/aclruntime-0.0.2-cp310-cp310-linux_aarch64.whl
+wget https://aisbench.obs.myhuaweicloud.com/packet/ais_bench_infer/0.0.2/ait/ais_bench-0.0.2-py3-none-any.whl
+
+# Install both packages
+pip3 install ./aclruntime-*.whl ./ais_bench-*.whl
+```
+
+### Install from Source (If Pre-built Wheels Unavailable)
 
 ```bash
 # Clone repository
