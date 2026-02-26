@@ -12,6 +12,7 @@ A streamlined knowledge base for Huawei Ascend NPU development, structured as AI
 | [ascend-docker](ascend-docker/SKILL.md) | Docker container setup for Ascend NPU development with device mappings and volume mounts |
 | [msmodelslim](msmodelslim/SKILL.md) | Ascend model compression tool: W4A8/W8A8/W8A8S quantization for LLM, MoE, multimodal models (Qwen, DeepSeek, GLM, Kimi), precision auto-tuning, custom model integration, vLLM-Ascend/MindIE deployment |
 | [ais-bench](ais-bench/SKILL.md) | AI model evaluation tool: accuracy evaluation (text, multimodal), performance evaluation (latency, throughput, stress testing), 15+ benchmarks (MMLU, GSM8K, MMMU, BFCL), multi-turn dialogue, Function Call |
+| [ascendc](ascendc/SKILL.md) | AscendC transformer operator development: FFN, GMM, MoE related operators implementation, including CANN API examples and best practices |
 
 ## Installation
 
