@@ -49,6 +49,12 @@
       "description": "AscendC development helper, provides AscendC development environment, compiler, and debugger. Supports C/C++ and Python programming on Ascend NPU. Includes sample code, tutorials, and best practices for AscendC development.",
       "source": "./ascendc",
       "category": "development"
+    },
+    {
+      "name": "vllm-ascend",
+      "description": "vLLM inference engine for Huawei Ascend NPU. Deploy LLMs with OpenAI-compatible API, offline batch inference, quantized model serving (W4A8, W8A8), tensor/pipeline parallelism for distributed inference, and performance optimization. Supports Qwen, DeepSeek, GLM, LLaMA models with Ascend-optimized kernels.",
+      "source": "./vllm-ascend",
+      "category": "development"
     }
   ]
 }
