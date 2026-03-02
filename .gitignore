@@ -36,3 +36,6 @@ __pycache__/
 env/
 venv/
 .ruff_cache/
+
+# Agent
+.sisyphus
