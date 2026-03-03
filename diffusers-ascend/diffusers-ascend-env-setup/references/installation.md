@@ -53,13 +53,10 @@ for var in required_vars:
 
 ## 2. PyTorch + torch_npu 安装
 
-### 版本配套要求
+### 安装策略
 
-| PyTorch 版本 | torch_npu 版本 | Python 版本 | 推荐 CANN |
-|--------------|----------------|-------------|-----------|
-| 2.7.1        | 2.7.1          | 3.9 - 3.11  | 8.0.RC3+  |
-| 2.5.1        | 2.5.1          | 3.9 - 3.11  | 8.0.RC1+  |
-| 2.1.0        | 2.1.0          | 3.8 - 3.11  | 7.0+      |
+1. **推荐方式**：先安装 PyTorch，再安装同版本的 torch_npu
+2. **如遇版本问题**：参考 [torch_npu README](https://gitcode.com/Ascend/pytorch/README.md) 查看完整配套表
 
 ### 安装步骤
 
@@ -75,23 +72,37 @@ pip install pyyaml setuptools
 
 ```bash
 # x86 架构
-pip install torch==2.7.1+cpu --index-url https://download.pytorch.org/whl/cpu
+pip install torch --index-url https://download.pytorch.org/whl/cpu
 
 # aarch64 架构
-pip install torch==2.7.1
+pip install torch
 ```
 
-**3. 安装 torch_npu**
+**3. 安装 torch_npu（版本自动匹配）**
 
 ```bash
-# 方式一：从 PyPI 安装（推荐）
-pip install torch-npu==2.7.1
-
-# 方式二：从 GitCode Release 下载
-# 访问 https://gitcode.com/Ascend/pytorch/releases
-# 下载对应版本的 whl 文件后安装
-pip install torch_npu-2.7.1-cp310-cp310-linux_x86_64.whl
+# 自动安装与当前 PyTorch 版本匹配的 torch_npu
+pip install torch-npu
 ```
+
+如果上述命令失败（版本不匹配），请：
+
+1. 检查 PyTorch 版本：`python -c "import torch; print(torch.__version__)"`
+2. 访问 [torch_npu README](https://gitcode.com/Ascend/pytorch/README.md) 查看配套表
+3. 安装指定版本：`pip install torch-npu=={version}`
+
+### 版本配套参考
+
+完整配套表请参考 [torch_npu README](https://gitcode.com/Ascend/pytorch/README.md)。以下是 **CANN 8.3.RC1** 的配套：
+
+| PyTorch | torch_npu | Python |
+|---------|-----------|--------|
+| 2.8.0 | 2.8.0 | 3.9 - 3.11 |
+| 2.7.1 | 2.7.1 | 3.9 - 3.11 |
+| 2.6.0 | 2.6.0.post3 | 3.9 - 3.11 |
+| 2.1.0 | 2.1.0.post17 | 3.8 - 3.11 |
+
+> **注意**：不同 CANN 版本支持的 PyTorch/torch_npu 版本不同，请以官方文档为准。
 
 ### 快速验证
 

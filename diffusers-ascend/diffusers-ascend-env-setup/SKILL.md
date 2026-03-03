@@ -25,9 +25,9 @@ else
     source /usr/local/Ascend/ascend-toolkit/set_env.sh
 fi
 
-# 2. 安装 PyTorch + torch_npu
-pip install torch==2.7.1 --index-url https://download.pytorch.org/whl/cpu
-pip install torch-npu==2.7.1
+# 2. 安装 PyTorch + torch_npu（版本自动匹配）
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install torch-npu  # 自动匹配已安装的 PyTorch 版本
 
 # 3. 安装 Diffusers
 pip install diffusers["torch"] transformers
@@ -49,16 +49,20 @@ python scripts/validate_environment.py
 | 组件 | 版本 | 说明 |
 |------|------|------|
 | CANN | 8.0.RC1+ | NPU 支持必需 |
-| PyTorch | 2.5.1 - 2.7.1 | 含 torch_npu 扩展 |
+| PyTorch | 2.1.0 - 2.8.0 | 含 torch_npu 扩展 |
 | Diffusers | 0.28.0+ | 支持 SDXL、SD3、Flux |
 
-**详细配套表**：
+**torch_npu 版本匹配**：
+- 默认安装与 PyTorch 版本相同的 torch_npu：`pip install torch-npu`
+- 如安装失败，请参考 [torch_npu Release](https://gitcode.com/Ascend/pytorch/README.md) 查看完整版本配套表
 
-| PyTorch | torch_npu | Python | 推荐 CANN |
-|---------|-----------|--------|-----------|
-| 2.7.1 | 2.7.1 | 3.9 - 3.11 | 8.0.RC3+ |
-| 2.5.1 | 2.5.1 | 3.9 - 3.11 | 8.0.RC1+ |
-| 2.1.0 | 2.1.0 | 3.8 - 3.11 | 7.0+ |
+**示例**（CANN 8.3.RC1）：
+
+| PyTorch | torch_npu | Python |
+|---------|-----------|--------|
+| 2.8.0 | 2.8.0 | 3.9 - 3.11 |
+| 2.7.1 | 2.7.1 | 3.9 - 3.11 |
+| 2.6.0 | 2.6.0.post3 | 3.9 - 3.11 |
 
 ## 环境验证
 
