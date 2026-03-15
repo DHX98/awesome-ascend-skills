@@ -1,0 +1,77 @@
+{
+  "meta": {
+    "run_id": "20260315-100000",
+    "timestamp": "2026-03-15T10:00:00",
+    "cwd": "/workspace/project",
+    "python_executable": "/usr/bin/python3",
+    "output_dir": "/workspace/project/sglang-ascend-env-doctor-output"
+  },
+  "summary": {
+    "overall_status": "yellow",
+    "executive_summary": "Overall status is yellow. Environment and backend checks are mostly available, but minimal launch is blocked because no idle NPU device was detected.",
+    "likely_root_causes": [
+      "No free/idle NPU available for safe launch probe; free one card or specify an idle device."
+    ],
+    "next_commands": [
+      "npu-smi info",
+      "python -m sglang.launch_server --help",
+      "bash .cursor/skills/sglang-ascend-env-doctor/scripts/run_env_doctor.sh --output-dir ./sglang-ascend-env-doctor-output --device-id <idle_id>"
+    ],
+    "scope_note": "This doctor validates environment/backend/minimal launch path only; it does not validate model quality or accuracy."
+  },
+  "composition": {
+    "skills_roots_scanned": [
+      ".cursor/skills"
+    ],
+    "skills_discovered": [
+      {
+        "name": "npu-smi",
+        "skill_md": ".cursor/skills/npu-smi/SKILL.md"
+      },
+      {
+        "name": "hccl-test",
+        "skill_md": ".cursor/skills/hccl-test/SKILL.md"
+      },
+      {
+        "name": "torch_npu",
+        "skill_md": ".cursor/skills/torch_npu/SKILL.md"
+      }
+    ],
+    "skills_used": [
+      {
+        "skill": "npu-smi",
+        "input": {
+          "command": "npu-smi info"
+        },
+        "note": "Reused npu-smi capability by invoking npu-smi diagnostics command."
+      },
+      {
+        "skill": "hccl-test",
+        "input": {
+          "mode": "lightweight-env-only"
+        },
+        "note": "Reused HCCL skill intent for environment signal capture without distributed test."
+      }
+    ],
+    "fallback_checks": [
+      "static_environment_collection",
+      "torch_npu_probe",
+      "sglang_probe",
+      "npu_device_availability",
+      "model_path_selection",
+      "minimal_launch_probe"
+    ],
+    "notes": []
+  },
+  "checks": [
+    {
+      "name": "minimal_launch_probe",
+      "status": "yellow",
+      "source": "fallback:launch-probe",
+      "summary": "Launch probe skipped: no free/idle NPU detected for safe launch test.",
+      "evidence": {
+        "blocked_reason": "No free/idle NPU detected for safe launch probe."
+      }
+    }
+  ]
+}
