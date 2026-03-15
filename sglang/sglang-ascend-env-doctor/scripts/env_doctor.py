@@ -726,6 +726,97 @@ class EnvDoctor:
             except OSError:
                 return False
 
+    def _collect_sglang_dependency_versions(self) -> Tuple[Dict[str, str], Optional[str]]:
+        dep_log = None
+        result = self.run_cmd(
+            ["python", "-m", "pip", "list", "--format=json"],
+            "failure-sglang-deps",
+            allow_fail=True,
+            source="fallback:failure-analysis",
+        )
+        dep_log = result.log_file
+        if result.returncode != 0:
+            return {"_error": f"pip list failed: rc={result.returncode}"}, dep_log
+
+        try:
+            rows = json.loads(result.stdout or "[]")
+        except json.JSONDecodeError:
+            return {"_error": "unable to parse pip list --format=json output"}, dep_log
+
+        patterns = [
+            r"^sglang$",
+            r"^sglang-router$",
+            r"^sgl[-_].*",
+            r"^sgl.*npu$",
+            r"^torch$",
+            r"^torch[-_]npu$",
+            r"^torchvision$",
+            r"^transformers$",
+            r"^triton-ascend$",
+            r"^vllm.*",
+            r"^xgrammar$",
+            r"^outlines.*",
+            r"^compressed-tensors$",
+        ]
+        regexes = [re.compile(p, flags=re.IGNORECASE) for p in patterns]
+
+        deps = {}
+        for row in rows:
+            name = str(row.get("name", ""))
+            ver = str(row.get("version", ""))
+            if any(rx.match(name) for rx in regexes):
+                deps[name] = ver
+
+        if not deps:
+            deps["_note"] = "No sglang-related packages matched current filter."
+        return dict(sorted(deps.items(), key=lambda kv: kv[0].lower())), dep_log
+
+    def _analyze_launch_failure(
+        self,
+        launch_log_path: Path,
+        launch_rc: Optional[int],
+        sglang_probe: Dict,
+    ) -> Dict:
+        text = ""
+        if launch_log_path.exists():
+            text = launch_log_path.read_text(encoding="utf-8", errors="ignore")
+        low = text.lower()
+
+        reasons = []
+        if launch_rc == -9 or "killed" in low:
+            reasons.append("Launch process was killed (possible OOM, external kill, or watchdog timeout).")
+        if "no module named 'torch_npu'" in low:
+            reasons.append("Missing torch_npu runtime in launch environment.")
+        if "no module named 'sglang'" in low:
+            reasons.append("Missing sglang package in launch environment.")
+        if "sgl_kernel_npu" in low and ("error" in low or "import" in low):
+            reasons.append("sgl-kernel-npu backend appears missing or incompatible with current sglang version.")
+        if "address already in use" in low:
+            reasons.append("Port conflict: target port already in use.")
+        if "permission denied" in low:
+            reasons.append("Permission issue encountered during startup.")
+        if "no such file or directory" in low and "model" in low:
+            reasons.append("Model path appears missing or inaccessible.")
+        if "out of memory" in low or "alloc" in low and "failed" in low:
+            reasons.append("Memory allocation failure during server startup.")
+        if "invalid choice" in low or "unrecognized arguments" in low:
+            reasons.append("Launch arguments may not match installed sglang version.")
+
+        probe_stderr = str(sglang_probe.get("evidence", {}).get("check_env_stderr", ""))
+        if "bisheng" in probe_stderr and "no such file or directory" in probe_stderr.lower():
+            reasons.append("CANN compiler tool 'bisheng' is missing from expected path in environment.")
+
+        if not reasons:
+            reasons.append(
+                "No specific signature matched; inspect minimal-launch log tail and dependency versions for mismatch."
+            )
+
+        tail_lines = text.splitlines()[-120:]
+        return {
+            "possible_reasons": reasons,
+            "launch_log_tail": safe_text("\n".join(tail_lines), limit=6000),
+        }
+
     def minimal_launch_probe(self, sglang_help: Dict, device_sel: Dict, model_sel: Dict) -> Dict:
         opts = sglang_help.get("help_options", {}) or {}
         selected_device = device_sel.get("selected_device_id")
@@ -783,11 +874,20 @@ class EnvDoctor:
             cmd += ["--base-gpu-id", str(selected_device)]
 
         launch_log = self.logs_dir / f"{self.run_id}-minimal-launch.log"
+        curl_log = self.logs_dir / f"{self.run_id}-minimal-launch-curl.json"
         self.stage(f"CMD minimal-launch: {' '.join(shlex.quote(c) for c in cmd)}")
         started = time.time()
         ready = False
         rc = None
         error_msg = ""
+        curl_result: Dict = {
+            "attempted": False,
+            "endpoint": "",
+            "http_code": "",
+            "returncode": None,
+            "response": "",
+            "error": "",
+        }
         proc = None
         try:
             with launch_log.open("w", encoding="utf-8") as f:
@@ -804,6 +904,27 @@ class EnvDoctor:
                     time.sleep(1)
                 if rc is None and proc.poll() is not None:
                     rc = proc.returncode
+                if ready:
+                    # Confirm callable API path with one lightweight curl request.
+                    # Try a common health endpoint first, then OpenAI-compatible model list endpoint.
+                    for endpoint in ["/health", "/v1/models"]:
+                        url = f"http://{host}:{port}{endpoint}"
+                        curl_cmd = ["curl", "-sS", "-m", "8", "-w", "\n%{http_code}", url]
+                        c = subprocess.run(curl_cmd, capture_output=True, text=True, check=False)
+                        payload = (c.stdout or "").rstrip("\n")
+                        lines = payload.splitlines()
+                        http_code = lines[-1] if lines else ""
+                        response_text = "\n".join(lines[:-1]) if len(lines) > 1 else ""
+                        curl_result = {
+                            "attempted": True,
+                            "endpoint": endpoint,
+                            "http_code": http_code,
+                            "returncode": c.returncode,
+                            "response": safe_text(response_text, limit=3000),
+                            "error": safe_text(c.stderr or "", limit=3000),
+                        }
+                        if c.returncode == 0 and http_code.startswith(("2", "3", "4")):
+                            break
         except Exception as e:
             error_msg = str(e)
             rc = -1
@@ -814,6 +935,7 @@ class EnvDoctor:
                     proc.wait(timeout=10)
                 except subprocess.TimeoutExpired:
                     proc.kill()
+        curl_log.write_text(json.dumps(curl_result, ensure_ascii=False, indent=2), encoding="utf-8")
 
         elapsed = round(time.time() - started, 3)
         status = STATUS_GREEN if ready else STATUS_RED
@@ -821,6 +943,21 @@ class EnvDoctor:
         if (not ready) and rc is None:
             status = STATUS_YELLOW
             summary = "Minimal launch probe inconclusive before timeout."
+        if ready and (not curl_result.get("attempted", False)):
+            status = STATUS_YELLOW
+            summary = "Server port became reachable, but curl confirmation was not executed."
+        if ready and curl_result.get("attempted", False):
+            if curl_result.get("returncode") == 0:
+                summary = (
+                    f"Minimal launch probe passed and curl call succeeded on {curl_result.get('endpoint')} "
+                    f"(HTTP {curl_result.get('http_code')})."
+                )
+            else:
+                status = STATUS_YELLOW
+                summary = (
+                    "Server port became reachable, but curl call failed; check endpoint compatibility "
+                    "or startup completeness."
+                )
 
         evidence = {
             "command": cmd,
@@ -832,14 +969,23 @@ class EnvDoctor:
             "returncode": rc,
             "elapsed_sec": elapsed,
             "error": error_msg,
+            "curl_result": curl_result,
         }
+        extra_logs = []
+        if status == STATUS_RED:
+            dep_versions, dep_log = self._collect_sglang_dependency_versions()
+            failure_analysis = self._analyze_launch_failure(launch_log, rc, sglang_help)
+            evidence["sglang_dependency_versions"] = dep_versions
+            evidence["failure_analysis"] = failure_analysis
+            if dep_log:
+                extra_logs.append(dep_log)
         self.add_check(
             name="minimal_launch_probe",
             status=status,
             source="fallback:launch-probe",
             summary=summary,
             evidence=evidence,
-            log_files=[str(launch_log)],
+            log_files=[str(launch_log), str(curl_log)] + extra_logs,
         )
         return evidence
 
@@ -895,7 +1041,12 @@ class EnvDoctor:
         elif not sgl_e.get("ascend_related", {}).get("contains_ascend_text", True):
             root_causes.append("SGLang build/help output lacks obvious Ascend options; possible incompatible or incomplete build.")
         if launch_check.get("status") == STATUS_RED:
-            root_causes.append("Minimal launch failed; check sgl-kernel-npu/backend compatibility and launch args.")
+            launch_e = launch_check.get("evidence", {})
+            failure_reasons = launch_e.get("failure_analysis", {}).get("possible_reasons", [])
+            if failure_reasons:
+                root_causes.extend(failure_reasons)
+            else:
+                root_causes.append("Minimal launch failed; check sgl-kernel-npu/backend compatibility and launch args.")
         if device_check.get("status") in {STATUS_YELLOW, STATUS_RED} and not device_check.get("evidence", {}).get("selected_device_id", None):
             root_causes.append("No free/idle NPU available for safe launch probe; free one card or specify an idle device.")
 

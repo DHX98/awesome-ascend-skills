@@ -145,6 +145,10 @@ Typical diagnoses:
 - `sglang.launch_server --help` lacks Ascend options/text -> likely SGLang build/version mismatch
 - minimal launch fails with backend import errors -> likely missing/incompatible `sgl-kernel-npu` stack
 - all NPUs occupied -> launch probe blocked; free one card or specify idle card
+- if minimal launch fails, report includes:
+  - current SGLang-related dependency versions (for example `sglang`, `sgl_kernel_npu`, `torch`, `torch_npu`, `transformers`)
+  - launch log tail snippet
+  - log-signature-based possible root causes
 
 `python -m sglang.check_env` failure is non-fatal in this skill: mark yellow and continue.
 
